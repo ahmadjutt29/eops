@@ -3,7 +3,8 @@ name: React CI/CD (Staging & Production)
 on:
   push:
     branches:
-      - develop   # Testing branch
+      - develop   # Staging
+      - main     # Production
 
 jobs:
   build-and-deploy:
@@ -39,7 +40,7 @@ jobs:
           $branch = "${{ github.ref }}"
           Write-Host "Branch: $branch"
 
-          if ($branch -eq 'refs/heads/deploy') {
+          if ($branch -eq 'refs/heads/develop') {
             Write-Host "Deploying to STAGING environment..."
             Remove-Item -Recurse -Force 'C:/nginx/html/react_staging/*' -ErrorAction SilentlyContinue
             Copy-Item -Path (Join-Path $distPath '*') -Destination 'C:/nginx/html/react_staging/' -Recurse -Force
