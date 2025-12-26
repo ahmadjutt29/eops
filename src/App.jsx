@@ -5,6 +5,7 @@ function App() {
   return (
     <div className="eops-container">
       <div className="eops-glow-bg"></div>
+      <div className="eops-dev-by">Developed by Ahmad Shakeel</div>
       <h1 className="eops-title">
         <span className="eops-gradient-text">WELCOME TO</span>
         <br />
