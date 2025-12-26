@@ -1,3 +1,16 @@
+.eops-dev-by {
+  position: absolute;
+  top: 32px;
+  left: 0;
+  width: 100vw;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.05em;
+  z-index: 10;
+  text-shadow: 0 2px 8px #ee0979, 0 1px 4px #000;
+}
 
 
 html, body {
