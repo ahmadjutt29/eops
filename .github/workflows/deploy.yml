@@ -25,7 +25,7 @@ jobs:
 
       # 4. Deploy to server
       - name: Deploy to Server
-        shell: pwsh
+        shell: powershell
         run: |
           $distPath = Join-Path $env:GITHUB_WORKSPACE 'dist'
           Write-Host "Dist folder path: $distPath"
