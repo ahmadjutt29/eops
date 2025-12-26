@@ -1,0 +1,62 @@
+name: React CI/CD (Staging & Production)
+
+on:
+  push:
+    branches:
+      - deploy   # Staging
+      - main     # Production
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      # 1. Checkout the repo
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Install Node.js dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # 3. Build React app
+      - name: Build React
+        run: npm run build
+
+      # 4. Deploy based on branch
+      - name: Deploy to Server
+        run: |
+          if ($GITHUB_REF -eq 'refs/heads/deploy') {
+              Write-Host "Deploying to STAGING"
+              Remove-Item -Recurse -Force C:\nginx\html\react_staging\*
+              Copy-Item -Path build\* -Destination C:\nginx\html\react_staging\ -Recurse
+              Write-Host "Staging deployment completed"
+          } elseif ($GITHUB_REF -eq 'refs/heads/main') {
+              Write-Host "Deploying to PRODUCTION"
+
+              # Step 4a: Backup previous production
+              Remove-Item -Recurse -Force C:\nginx\html\backup_prod\*
+              Copy-Item -Path C:\nginx\html\react_prod\* -Destination C:\nginx\html\backup_prod\ -Recurse
+              Write-Host "Backup of previous production completed"
+
+              # Step 4b: Deploy new build
+              Remove-Item -Recurse -Force C:\nginx\html\react_prod\*
+              Copy-Item -Path build\* -Destination C:\nginx\html\react_prod\ -Recurse
+              Write-Host "Production deployment completed"
+
+              # Step 4c: Health check
+              try {
+                  $resp = Invoke-WebRequest http://localhost/ -UseBasicParsing
+                  if ($resp.StatusCode -eq 200) {
+                      Write-Host "Production is live and healthy"
+                  } else {
+                      throw "Health check failed"
+                  }
+              } catch {
+                  Write-Host "Health check failed! Rolling back..."
+                  Remove-Item -Recurse -Force C:\nginx\html\react_prod\*
+                  Copy-Item -Path C:\nginx\html\backup_prod\* -Destination C:\nginx\html\react_prod\ -Recurse
+                  Write-Host "Rollback completed"
+                  exit 1
+              }
+          }
