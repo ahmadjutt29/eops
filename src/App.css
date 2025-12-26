@@ -1,0 +1,94 @@
+
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: linear-gradient(135deg, #0f2027, #2c5364 100%);
+  min-height: 100vh;
+  min-width: 100vw;
+  width: 100vw;
+  height: 100vh;
+  font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-x: hidden;
+}
+
+.eops-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  min-width: 100vw;
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+}
+
+.eops-glow-bg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, #00c6ff 0%, #0072ff 60%, transparent 100%);
+  filter: blur(40px) brightness(1.1);
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  opacity: 0.5;
+}
+
+.eops-title {
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-align: center;
+  margin: 0;
+  position: relative;
+  z-index: 2;
+  line-height: 1.1;
+  text-shadow: 0 4px 16px rgba(0, 123, 255, 0.15), 0 1px 4px #000;
+}
+
+.eops-gradient-text {
+  background: linear-gradient(90deg, #00c6ff, #0072ff, #00c6ff 80%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  display: block;
+  font-size: clamp(1.2rem, 4vw, 3rem);
+  margin-bottom: 0.2em;
+}
+
+.eops-eops {
+  font-size: clamp(3rem, 12vw, 8rem);
+  color: #fff;
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 16px #00c6ff, 0 0 32px #0072ff, 0 1px 4px #000;
+  animation: eops-flicker 2.5s infinite alternate;
+}
+
+@keyframes eops-flicker {
+  0% { opacity: 1; filter: brightness(1.1); }
+  50% { opacity: 0.95; filter: brightness(1.2); }
+  100% { opacity: 1; filter: brightness(1.1); }
+}
+
+.eops-underline {
+  width: clamp(120px, 30vw, 320px);
+  height: 8px;
+  background: linear-gradient(90deg, #00c6ff, #0072ff);
+  border-radius: 4px;
+  margin: 2rem auto 0 auto;
+  box-shadow: 0 0 32px #00c6ff88, 0 2px 8px #0072ff88;
+  z-index: 2;
+}
