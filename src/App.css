@@ -20,7 +20,7 @@ html, body {
 }
 
 body {
-  background: linear-gradient(135deg, #ff6a00, #ee0979 100%);
+  background: linear-gradient(135deg, #2196f3 0%, #43ea7f 60%, #ffe600 100%);
   min-height: 100vh;
   min-width: 100vw;
   width: 100vw;
@@ -52,7 +52,7 @@ body {
   left: 50%;
   width: 700px;
   height: 700px;
-  background: radial-gradient(circle, #ffb347 0%, #ee0979 60%, transparent 100%);
+  background: radial-gradient(circle, #2196f3 0%, #43ea7f 60%, #ffe600 100%, transparent 100%);
   filter: blur(40px) brightness(1.1);
   transform: translate(-50%, -50%);
   z-index: 0;
