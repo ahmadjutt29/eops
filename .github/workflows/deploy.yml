@@ -21,36 +21,39 @@ jobs:
       # 2. INSTALL DEPENDENCIES
       # =========================================================
       - name: Install dependencies
+        shell: powershell
         run: |
-          echo "========== INSTALLING DEPENDENCIES =========="
+          Write-Host "========== INSTALLING DEPENDENCIES =========="
           npm ci
-          echo "========== DEPENDENCIES INSTALLED =========="
+          Write-Host "========== DEPENDENCIES INSTALLED =========="
 
       # =========================================================
-      # 3. BUILD APPLICATION (conditional)
+      # 3. BUILD APPLICATION
       # =========================================================
       - name: Build React app
         shell: powershell
         run: |
-          echo "========== BUILD STARTED =========="
-          echo "Branch detected: ${{ github.ref }}"
+          Write-Host "========== BUILD STARTED =========="
 
-          if ("${{ github.ref }}" -eq "refs/heads/develop") {
-            echo "Environment: STAGING"
-            echo "Running: npm run build -- --mode staging"
+          $branch = $env:GITHUB_REF
+          Write-Host "Branch detected: $branch"
+
+          if ($branch -eq "refs/heads/develop") {
+            Write-Host "Environment: STAGING"
+            Write-Host "Running: npm run build -- --mode staging"
             npm run build -- --mode staging
           }
-          elseif ("${{ github.ref }}" -eq "refs/heads/main") {
-            echo "Environment: PRODUCTION"
-            echo "Running: npm run build"
+          elseif ($branch -eq "refs/heads/main") {
+            Write-Host "Environment: PRODUCTION"
+            Write-Host "Running: npm run build"
             npm run build
           }
           else {
-            echo "UNKNOWN BRANCH – EXITING"
+            Write-Host "UNKNOWN BRANCH - EXITING"
             exit 1
           }
 
-          echo "========== BUILD COMPLETED =========="
+          Write-Host "========== BUILD COMPLETED =========="
 
       # =========================================================
       # 4. DEPLOY
@@ -58,83 +61,80 @@ jobs:
       - name: Deploy to Server
         shell: powershell
         run: |
-          echo "========== DEPLOYMENT STARTED =========="
+          Write-Host "========== DEPLOYMENT STARTED =========="
 
           $distPath = Join-Path $env:GITHUB_WORKSPACE 'dist'
-
-          echo "Build Output Path: $distPath"
+          Write-Host "Build Output Path: $distPath"
 
           if (-not (Test-Path $distPath)) {
-            echo "ERROR: dist folder NOT FOUND"
+            Write-Host "ERROR: dist folder NOT FOUND"
             exit 1
           }
 
-          echo "========== DIST CONTENT =========="
+          Write-Host "========== DIST CONTENT =========="
           Get-ChildItem -Recurse $distPath
 
-          $branch = "${{ github.ref }}"
-          echo "Current branch: $branch"
+          $branch = $env:GITHUB_REF
+          Write-Host "Current branch: $branch"
 
           if ($branch -eq "refs/heads/develop") {
 
-            echo "========== STAGING DEPLOYMENT =========="
-            echo "Target: C:/nginx/html/react_staging/"
+            Write-Host "========== STAGING DEPLOYMENT =========="
+            Write-Host "Target: C:/nginx/html/react_staging/"
 
             Remove-Item -Recurse -Force 'C:/nginx/html/react_staging/*' -ErrorAction SilentlyContinue
             Copy-Item -Path (Join-Path $distPath '*') `
               -Destination 'C:/nginx/html/react_staging/' `
               -Recurse -Force
 
-            echo "Staging deployment COMPLETE"
+            Write-Host "Staging deployment COMPLETE"
           }
-
           elseif ($branch -eq "refs/heads/main") {
 
-            echo "========== PRODUCTION DEPLOYMENT =========="
+            Write-Host "========== PRODUCTION DEPLOYMENT =========="
 
-            echo "Step 1: BACKUP old production"
+            Write-Host "Step 1: BACKUP old production"
             Remove-Item -Recurse -Force 'C:/nginx/html/backup_prod/*' -ErrorAction SilentlyContinue
             Copy-Item -Path 'C:/nginx/html/react_prod/*' `
               -Destination 'C:/nginx/html/backup_prod/' `
               -Recurse -Force
-            echo "Backup complete"
+            Write-Host "Backup complete"
 
-            echo "Step 2: DEPLOY new production build"
+            Write-Host "Step 2: DEPLOY new production build"
             Remove-Item -Recurse -Force 'C:/nginx/html/react_prod/*' -ErrorAction SilentlyContinue
             Copy-Item -Path (Join-Path $distPath '*') `
               -Destination 'C:/nginx/html/react_prod/' `
               -Recurse -Force
-            echo "Production updated"
+            Write-Host "Production updated"
 
-            echo "Step 3: HEALTH CHECK"
+            Write-Host "Step 3: HEALTH CHECK"
             try {
               $resp = Invoke-WebRequest http://localhost/ -UseBasicParsing
-              echo "Health Check Status: $($resp.StatusCode)"
+              Write-Host "Health Check Status: $($resp.StatusCode)"
 
               if ($resp.StatusCode -eq 200) {
-                echo "APPLICATION HEALTHY"
+                Write-Host "APPLICATION HEALTHY"
               }
               else {
                 throw "Returned non-200"
               }
             }
             catch {
-              echo "HEALTH CHECK FAILED — ROLLING BACK"
+              Write-Host "HEALTH CHECK FAILED — ROLLING BACK"
 
               Remove-Item -Recurse -Force 'C:/nginx/html/react_prod/*' -ErrorAction SilentlyContinue
               Copy-Item -Path 'C:/nginx/html/backup_prod/*' `
                 -Destination 'C:/nginx/html/react_prod/' `
                 -Recurse -Force
 
-              echo "ROLLBACK COMPLETE"
+              Write-Host "ROLLBACK COMPLETE"
               exit 1
             }
 
-            echo "Production deployment COMPLETE"
+            Write-Host "Production deployment COMPLETE"
           }
-
           else {
-            echo "Branch is NOT develop or main — SKIPPING DEPLOY"
+            Write-Host "Branch is NOT develop or main — SKIPPING DEPLOY"
           }
 
-          echo "========== DEPLOYMENT FINISHED =========="
+          Write-Host "========== DEPLOYMENT FINISHED =========="
