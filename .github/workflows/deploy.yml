@@ -6,115 +6,510 @@ on:
       - develop
       - main
 
+env:
+  NODE_VERSION: '18'
+  STAGING_PATH: 'C:/nginx/html/react_staging'
+  PROD_PATH: 'C:/nginx/html/react_prod'
+  BACKUP_PATH: 'C:/nginx/html/backup_prod'
+
 jobs:
-  build-and-deploy:
+  # =========================================================
+  # JOB 1: BUILD
+  # =========================================================
+  build:
+    name: Build Application
     runs-on: self-hosted
-
+    
     steps:
-      # =========================================================
-      # 1. CHECKOUT
-      # =========================================================
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # =========================================================
-      # 2. INSTALL DEPENDENCIES
-      # =========================================================
-      - name: Install dependencies
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Log Build Information
         shell: powershell
         run: |
-          Write-Host "========== INSTALLING DEPENDENCIES =========="
-          npm ci
-          Write-Host "========== DEPENDENCIES INSTALLED =========="
+          Write-Host "================================================" -ForegroundColor Cyan
+          Write-Host "BUILD JOB STARTED" -ForegroundColor Cyan
+          Write-Host "================================================" -ForegroundColor Cyan
+          Write-Host "Branch: $env:GITHUB_REF" -ForegroundColor Yellow
+          Write-Host "Commit: $env:GITHUB_SHA" -ForegroundColor Yellow
+          Write-Host "Actor: $env:GITHUB_ACTOR" -ForegroundColor Yellow
+          Write-Host "Workflow: $env:GITHUB_WORKFLOW" -ForegroundColor Yellow
+          Write-Host "Run Number: $env:GITHUB_RUN_NUMBER" -ForegroundColor Yellow
+          Write-Host "================================================" -ForegroundColor Cyan
 
-      # =========================================================
-      # 3. BUILD APPLICATION
-      # =========================================================
-      - name: Build React app
+      - name: Install Dependencies
         shell: powershell
         run: |
-          Write-Host "========== BUILD STARTED =========="
-
-          $branch = $env:GITHUB_REF
-          Write-Host "Branch detected: $branch"
-
-          if ($branch -eq "refs/heads/develop") {
-            Write-Host "Environment: STAGING"
-            Write-Host "Running: npm run build -- --mode staging"
-            npm run build -- --mode staging
+          Write-Host "================================================" -ForegroundColor Green
+          Write-Host "INSTALLING DEPENDENCIES" -ForegroundColor Green
+          Write-Host "================================================" -ForegroundColor Green
+          
+          $startTime = Get-Date
+          Write-Host "Start Time: $startTime" -ForegroundColor Gray
+          
+          try {
+            npm ci
+            
+            $endTime = Get-Date
+            $duration = $endTime - $startTime
+            Write-Host "================================================" -ForegroundColor Green
+            Write-Host "DEPENDENCIES INSTALLED SUCCESSFULLY" -ForegroundColor Green
+            Write-Host "Duration: $($duration.TotalSeconds) seconds" -ForegroundColor Gray
+            Write-Host "================================================" -ForegroundColor Green
           }
-          elseif ($branch -eq "refs/heads/main") {
-            Write-Host "Environment: PRODUCTION"
-            Write-Host "Running: npm run build"
-            npm run build
-          }
-          else {
-            Write-Host "UNKNOWN BRANCH - EXITING"
+          catch {
+            Write-Host "================================================" -ForegroundColor Red
+            Write-Host "DEPENDENCY INSTALLATION FAILED" -ForegroundColor Red
+            Write-Host "Error: $_" -ForegroundColor Red
+            Write-Host "================================================" -ForegroundColor Red
             exit 1
           }
 
-          Write-Host "========== BUILD COMPLETED =========="
-
-      # =========================================================
-      # 4. DEPLOY
-      # =========================================================
-      - name: Deploy to Server
+      - name: Build Application
         shell: powershell
         run: |
-          Write-Host "========== DEPLOYMENT STARTED =========="
+          Write-Host "================================================" -ForegroundColor Magenta
+          Write-Host "BUILD PROCESS STARTED" -ForegroundColor Magenta
+          Write-Host "================================================" -ForegroundColor Magenta
+          
+          $branch = $env:GITHUB_REF
+          $startTime = Get-Date
+          Write-Host "Branch: $branch" -ForegroundColor Yellow
+          Write-Host "Start Time: $startTime" -ForegroundColor Gray
+          
+          try {
+            if ($branch -eq "refs/heads/develop") {
+              Write-Host "Environment: STAGING" -ForegroundColor Yellow
+              Write-Host "Command: npm run build -- --mode staging" -ForegroundColor Gray
+              npm run build -- --mode staging
+            }
+            elseif ($branch -eq "refs/heads/main") {
+              Write-Host "Environment: PRODUCTION" -ForegroundColor Green
+              Write-Host "Command: npm run build" -ForegroundColor Gray
+              npm run build
+            }
+            else {
+              Write-Host "UNKNOWN BRANCH: $branch" -ForegroundColor Red
+              Write-Host "Only develop and main branches are supported" -ForegroundColor Red
+              exit 1
+            }
+            
+            $endTime = Get-Date
+            $duration = $endTime - $startTime
+            Write-Host "================================================" -ForegroundColor Magenta
+            Write-Host "BUILD COMPLETED SUCCESSFULLY" -ForegroundColor Green
+            Write-Host "Duration: $($duration.TotalSeconds) seconds" -ForegroundColor Gray
+            Write-Host "================================================" -ForegroundColor Magenta
+          }
+          catch {
+            Write-Host "================================================" -ForegroundColor Red
+            Write-Host "BUILD FAILED" -ForegroundColor Red
+            Write-Host "Error: $_" -ForegroundColor Red
+            Write-Host "================================================" -ForegroundColor Red
+            exit 1
+          }
 
+      - name: Verify Build Output
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Blue
+          Write-Host "VERIFYING BUILD OUTPUT" -ForegroundColor Blue
+          Write-Host "================================================" -ForegroundColor Blue
+          
           $distPath = Join-Path $env:GITHUB_WORKSPACE 'dist'
-          Write-Host "Build Output Path: $distPath"
-
+          Write-Host "Build Output Path: $distPath" -ForegroundColor Yellow
+          
           if (-not (Test-Path $distPath)) {
-            Write-Host "ERROR: dist folder NOT FOUND"
+            Write-Host "ERROR: dist folder NOT FOUND at $distPath" -ForegroundColor Red
+            exit 1
+          }
+          
+          Write-Host "dist folder found" -ForegroundColor Green
+          Write-Host "" 
+          Write-Host "Build Contents:" -ForegroundColor Cyan
+          Get-ChildItem -Path $distPath -Recurse | ForEach-Object {
+            $relativePath = $_.FullName.Substring($distPath.Length)
+            if ($_.PSIsContainer) {
+              Write-Host "  [DIR] $relativePath" -ForegroundColor Cyan
+            } else {
+              $size = [math]::Round($_.Length / 1KB, 2)
+              Write-Host "  [FILE] $relativePath ($size KB)" -ForegroundColor Gray
+            }
+          }
+          Write-Host "================================================" -ForegroundColor Blue
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-build-${{ github.sha }}
+          path: dist/
+          retention-days: 7
+
+  # =========================================================
+  # JOB 2: DEPLOY TO STAGING
+  # =========================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: self-hosted
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: react-build-${{ github.sha }}
+          path: dist/
+
+      - name: Log Deployment Information
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Cyan
+          Write-Host "STAGING DEPLOYMENT STARTED" -ForegroundColor Yellow
+          Write-Host "================================================" -ForegroundColor Cyan
+          Write-Host "Target: $env:STAGING_PATH" -ForegroundColor Yellow
+          Write-Host "Branch: $env:GITHUB_REF" -ForegroundColor Yellow
+          Write-Host "Commit: $env:GITHUB_SHA" -ForegroundColor Yellow
+          Write-Host "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Yellow
+          Write-Host "================================================" -ForegroundColor Cyan
+
+      - name: Clean Staging Directory
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Yellow
+          Write-Host "CLEANING STAGING DIRECTORY" -ForegroundColor Yellow
+          Write-Host "================================================" -ForegroundColor Yellow
+          
+          $stagingPath = $env:STAGING_PATH
+          Write-Host "Path: $stagingPath" -ForegroundColor Gray
+          
+          try {
+            if (Test-Path $stagingPath) {
+              Write-Host "Removing existing files..." -ForegroundColor Gray
+              Remove-Item -Recurse -Force "$stagingPath/*" -ErrorAction SilentlyContinue
+              Write-Host "Staging directory cleaned" -ForegroundColor Green
+            } else {
+              Write-Host "Creating staging directory..." -ForegroundColor Gray
+              New-Item -ItemType Directory -Path $stagingPath -Force | Out-Null
+              Write-Host "Staging directory created" -ForegroundColor Green
+            }
+          }
+          catch {
+            Write-Host "Failed to clean staging directory" -ForegroundColor Red
+            Write-Host "Error: $_" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "================================================" -ForegroundColor Yellow
+
+      - name: Deploy to Staging
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Green
+          Write-Host "DEPLOYING TO STAGING" -ForegroundColor Green
+          Write-Host "================================================" -ForegroundColor Green
+          
+          $distPath = Join-Path $env:GITHUB_WORKSPACE 'dist'
+          $stagingPath = $env:STAGING_PATH
+          $startTime = Get-Date
+          
+          Write-Host "Source: $distPath" -ForegroundColor Gray
+          Write-Host "Destination: $stagingPath" -ForegroundColor Gray
+          
+          try {
+            Copy-Item -Path "$distPath/*" -Destination $stagingPath -Recurse -Force
+            
+            $endTime = Get-Date
+            $duration = $endTime - $startTime
+            
+            Write-Host "================================================" -ForegroundColor Green
+            Write-Host "STAGING DEPLOYMENT SUCCESSFUL" -ForegroundColor Green
+            Write-Host "Duration: $($duration.TotalSeconds) seconds" -ForegroundColor Gray
+            Write-Host "Deployed at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
+            Write-Host "================================================" -ForegroundColor Green
+          }
+          catch {
+            Write-Host "================================================" -ForegroundColor Red
+            Write-Host "STAGING DEPLOYMENT FAILED" -ForegroundColor Red
+            Write-Host "Error: $_" -ForegroundColor Red
+            Write-Host "================================================" -ForegroundColor Red
             exit 1
           }
 
-          Write-Host "========== DIST CONTENT =========="
-          Get-ChildItem -Recurse $distPath
-
-          $branch = $env:GITHUB_REF
-          Write-Host "Current branch: $branch"
-
-          if ($branch -eq "refs/heads/develop") {
-            Write-Host "========== STAGING DEPLOYMENT =========="
-            Write-Host "Target: C:/nginx/html/react_staging/"
-            Remove-Item -Recurse -Force 'C:/nginx/html/react_staging/*' -ErrorAction SilentlyContinue
-            Copy-Item -Path (Join-Path $distPath '*') -Destination 'C:/nginx/html/react_staging/' -Recurse -Force
-            Write-Host "Staging deployment COMPLETE"
+      - name: Verify Staging Deployment
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Blue
+          Write-Host "VERIFYING STAGING DEPLOYMENT" -ForegroundColor Blue
+          Write-Host "================================================" -ForegroundColor Blue
+          
+          $stagingPath = $env:STAGING_PATH
+          
+          if (Test-Path "$stagingPath/index.html") {
+            Write-Host "index.html found" -ForegroundColor Green
+            $fileCount = (Get-ChildItem -Path $stagingPath -Recurse -File).Count
+            Write-Host "Total files deployed: $fileCount" -ForegroundColor Green
+            Write-Host "================================================" -ForegroundColor Blue
+            Write-Host "STAGING DEPLOYMENT VERIFIED" -ForegroundColor Green
+            Write-Host "================================================" -ForegroundColor Blue
+          } else {
+            Write-Host "index.html NOT FOUND" -ForegroundColor Red
+            Write-Host "Deployment may be incomplete" -ForegroundColor Red
+            exit 1
           }
-          elseif ($branch -eq "refs/heads/main") {
-            Write-Host "========== PRODUCTION DEPLOYMENT =========="
-            Write-Host "Step 1: BACKUP old production"
-            Remove-Item -Recurse -Force 'C:/nginx/html/backup_prod/*' -ErrorAction SilentlyContinue
-            Copy-Item -Path 'C:/nginx/html/react_prod/*' -Destination 'C:/nginx/html/backup_prod/' -Recurse -Force
-            Write-Host "Backup complete"
-            Write-Host "Step 2: DEPLOY new production build"
-            Remove-Item -Recurse -Force 'C:/nginx/html/react_prod/*' -ErrorAction SilentlyContinue
-            Copy-Item -Path (Join-Path $distPath '*') -Destination 'C:/nginx/html/react_prod/' -Recurse -Force
-            Write-Host "Production updated"
-            Write-Host "Step 3: HEALTH CHECK"
+
+  # =========================================================
+  # JOB 3: DEPLOY TO PRODUCTION
+  # =========================================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: self-hosted
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: react-build-${{ github.sha }}
+          path: dist/
+
+      - name: Log Production Deployment Information
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Cyan
+          Write-Host "PRODUCTION DEPLOYMENT STARTED" -ForegroundColor Green
+          Write-Host "================================================" -ForegroundColor Cyan
+          Write-Host "Target: $env:PROD_PATH" -ForegroundColor Yellow
+          Write-Host "Backup: $env:BACKUP_PATH" -ForegroundColor Yellow
+          Write-Host "Branch: $env:GITHUB_REF" -ForegroundColor Yellow
+          Write-Host "Commit: $env:GITHUB_SHA" -ForegroundColor Yellow
+          Write-Host "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Yellow
+          Write-Host "================================================" -ForegroundColor Cyan
+
+      - name: Backup Current Production
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Yellow
+          Write-Host "BACKING UP CURRENT PRODUCTION" -ForegroundColor Yellow
+          Write-Host "================================================" -ForegroundColor Yellow
+          
+          $prodPath = $env:PROD_PATH
+          $backupPath = $env:BACKUP_PATH
+          $startTime = Get-Date
+          
+          Write-Host "Source: $prodPath" -ForegroundColor Gray
+          Write-Host "Backup Location: $backupPath" -ForegroundColor Gray
+          
+          try {
+            if (Test-Path $backupPath) {
+              Write-Host "Cleaning old backup..." -ForegroundColor Gray
+              Remove-Item -Recurse -Force "$backupPath/*" -ErrorAction SilentlyContinue
+            } else {
+              Write-Host "Creating backup directory..." -ForegroundColor Gray
+              New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
+            }
+            
+            if (Test-Path $prodPath) {
+              Write-Host "Creating backup of current production..." -ForegroundColor Gray
+              Copy-Item -Path "$prodPath/*" -Destination $backupPath -Recurse -Force
+              
+              $endTime = Get-Date
+              $duration = $endTime - $startTime
+              $fileCount = (Get-ChildItem -Path $backupPath -Recurse -File).Count
+              
+              Write-Host "================================================" -ForegroundColor Yellow
+              Write-Host "BACKUP COMPLETED SUCCESSFULLY" -ForegroundColor Green
+              Write-Host "Files backed up: $fileCount" -ForegroundColor Gray
+              Write-Host "Duration: $($duration.TotalSeconds) seconds" -ForegroundColor Gray
+              Write-Host "================================================" -ForegroundColor Yellow
+            } else {
+              Write-Host "No existing production to backup (first deployment)" -ForegroundColor Yellow
+            }
+          }
+          catch {
+            Write-Host "================================================" -ForegroundColor Red
+            Write-Host "BACKUP FAILED" -ForegroundColor Red
+            Write-Host "Error: $_" -ForegroundColor Red
+            Write-Host "================================================" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: Clean Production Directory
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Yellow
+          Write-Host "CLEANING PRODUCTION DIRECTORY" -ForegroundColor Yellow
+          Write-Host "================================================" -ForegroundColor Yellow
+          
+          $prodPath = $env:PROD_PATH
+          Write-Host "Path: $prodPath" -ForegroundColor Gray
+          
+          try {
+            if (Test-Path $prodPath) {
+              Write-Host "Removing existing files..." -ForegroundColor Gray
+              Remove-Item -Recurse -Force "$prodPath/*" -ErrorAction SilentlyContinue
+              Write-Host "Production directory cleaned" -ForegroundColor Green
+            } else {
+              Write-Host "Creating production directory..." -ForegroundColor Gray
+              New-Item -ItemType Directory -Path $prodPath -Force | Out-Null
+              Write-Host "Production directory created" -ForegroundColor Green
+            }
+          }
+          catch {
+            Write-Host "Failed to clean production directory" -ForegroundColor Red
+            Write-Host "Error: $_" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "================================================" -ForegroundColor Yellow
+
+      - name: Deploy to Production
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Green
+          Write-Host "DEPLOYING TO PRODUCTION" -ForegroundColor Green
+          Write-Host "================================================" -ForegroundColor Green
+          
+          $distPath = Join-Path $env:GITHUB_WORKSPACE 'dist'
+          $prodPath = $env:PROD_PATH
+          $startTime = Get-Date
+          
+          Write-Host "Source: $distPath" -ForegroundColor Gray
+          Write-Host "Destination: $prodPath" -ForegroundColor Gray
+          
+          try {
+            Copy-Item -Path "$distPath/*" -Destination $prodPath -Recurse -Force
+            
+            $endTime = Get-Date
+            $duration = $endTime - $startTime
+            $fileCount = (Get-ChildItem -Path $prodPath -Recurse -File).Count
+            
+            Write-Host "================================================" -ForegroundColor Green
+            Write-Host "PRODUCTION DEPLOYMENT SUCCESSFUL" -ForegroundColor Green
+            Write-Host "Files deployed: $fileCount" -ForegroundColor Gray
+            Write-Host "Duration: $($duration.TotalSeconds) seconds" -ForegroundColor Gray
+            Write-Host "Deployed at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
+            Write-Host "================================================" -ForegroundColor Green
+          }
+          catch {
+            Write-Host "================================================" -ForegroundColor Red
+            Write-Host "PRODUCTION DEPLOYMENT FAILED" -ForegroundColor Red
+            Write-Host "Error: $_" -ForegroundColor Red
+            Write-Host "================================================" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: Health Check
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Cyan
+          Write-Host "PERFORMING HEALTH CHECK" -ForegroundColor Cyan
+          Write-Host "================================================" -ForegroundColor Cyan
+          
+          $healthCheckUrl = "http://localhost/"
+          $maxRetries = 3
+          $retryDelay = 5
+          
+          Write-Host "URL: $healthCheckUrl" -ForegroundColor Gray
+          Write-Host "Max Retries: $maxRetries" -ForegroundColor Gray
+          Write-Host "Retry Delay: $retryDelay seconds" -ForegroundColor Gray
+          Write-Host ""
+          
+          for ($i = 1; $i -le $maxRetries; $i++) {
             try {
-              $resp = Invoke-WebRequest http://localhost/ -UseBasicParsing
-              Write-Host "Health Check Status: $($resp.StatusCode)"
-              if ($resp.StatusCode -eq 200) {
-                Write-Host "APPLICATION HEALTHY"
+              Write-Host "Attempt $i of $maxRetries..." -ForegroundColor Yellow
+              
+              $response = Invoke-WebRequest -Uri $healthCheckUrl -UseBasicParsing -TimeoutSec 10
+              
+              Write-Host "Status Code: $($response.StatusCode)" -ForegroundColor Gray
+              
+              if ($response.StatusCode -eq 200) {
+                Write-Host "================================================" -ForegroundColor Green
+                Write-Host "HEALTH CHECK PASSED" -ForegroundColor Green
+                Write-Host "Application is responding correctly" -ForegroundColor Green
+                Write-Host "================================================" -ForegroundColor Green
+                exit 0
               }
               else {
-                throw "Returned non-200"
+                Write-Host "Unexpected status code: $($response.StatusCode)" -ForegroundColor Yellow
               }
             }
             catch {
-              Write-Host "HEALTH CHECK FAILED — ROLLING BACK"
-              Remove-Item -Recurse -Force 'C:/nginx/html/react_prod/*' -ErrorAction SilentlyContinue
-              Copy-Item -Path 'C:/nginx/html/backup_prod/*' -Destination 'C:/nginx/html/react_prod/' -Recurse -Force
-              Write-Host "ROLLBACK COMPLETE"
-              exit 1
+              Write-Host "Attempt $i failed: $_" -ForegroundColor Red
+              
+              if ($i -lt $maxRetries) {
+                Write-Host "Waiting $retryDelay seconds before retry..." -ForegroundColor Yellow
+                Start-Sleep -Seconds $retryDelay
+              }
             }
-            Write-Host "Production deployment COMPLETE"
           }
-          else {
-            Write-Host "Branch is NOT develop or main — SKIPPING DEPLOY"
+          
+          Write-Host "================================================" -ForegroundColor Red
+          Write-Host "HEALTH CHECK FAILED AFTER $maxRetries ATTEMPTS" -ForegroundColor Red
+          Write-Host "================================================" -ForegroundColor Red
+          throw "Health check failed"
+
+      - name: Rollback on Failure
+        if: failure()
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Red
+          Write-Host "INITIATING ROLLBACK" -ForegroundColor Red
+          Write-Host "================================================" -ForegroundColor Red
+          
+          $prodPath = $env:PROD_PATH
+          $backupPath = $env:BACKUP_PATH
+          $startTime = Get-Date
+          
+          Write-Host "Backup Source: $backupPath" -ForegroundColor Gray
+          Write-Host "Production Target: $prodPath" -ForegroundColor Gray
+          
+          try {
+            if (Test-Path $backupPath) {
+              Write-Host "Removing failed deployment..." -ForegroundColor Gray
+              Remove-Item -Recurse -Force "$prodPath/*" -ErrorAction SilentlyContinue
+              
+              Write-Host "Restoring from backup..." -ForegroundColor Gray
+              Copy-Item -Path "$backupPath/*" -Destination $prodPath -Recurse -Force
+              
+              $endTime = Get-Date
+              $duration = $endTime - $startTime
+              
+              Write-Host "================================================" -ForegroundColor Yellow
+              Write-Host "ROLLBACK COMPLETED SUCCESSFULLY" -ForegroundColor Yellow
+              Write-Host "Previous version restored" -ForegroundColor Yellow
+              Write-Host "Duration: $($duration.TotalSeconds) seconds" -ForegroundColor Gray
+              Write-Host "================================================" -ForegroundColor Yellow
+            } else {
+              Write-Host "No backup found to restore" -ForegroundColor Red
+            }
           }
-          Write-Host "========== DEPLOYMENT FINISHED =========="
+          catch {
+            Write-Host "================================================" -ForegroundColor Red
+            Write-Host "ROLLBACK FAILED" -ForegroundColor Red
+            Write-Host "Error: $_" -ForegroundColor Red
+            Write-Host "MANUAL INTERVENTION REQUIRED" -ForegroundColor Red
+            Write-Host "================================================" -ForegroundColor Red
+          }
+
+      - name: Verify Production Deployment
+        if: success()
+        shell: powershell
+        run: |
+          Write-Host "================================================" -ForegroundColor Blue
+          Write-Host "VERIFYING PRODUCTION DEPLOYMENT" -ForegroundColor Blue
+          Write-Host "================================================" -ForegroundColor Blue
+          
+          $prodPath = $env:PROD_PATH
+          
+          if (Test-Path "$prodPath/index.html") {
+            Write-Host "index.html found" -ForegroundColor Green
+            $fileCount = (Get-ChildItem -Path $prodPath -Recurse -File).Count
+            Write-Host "Total files deployed: $fileCount" -ForegroundColor Green
+            Write-Host "================================================" -ForegroundColor Blue
+            Write-Host "PRODUCTION DEPLOYMENT VERIFIED AND COMPLETE" -ForegroundColor Green
+            Write-Host "================================================" -ForegroundColor Blue
+          } else {
+            Write-Host "index.html NOT FOUND" -ForegroundColor Red
+            Write-Host "Deployment may be incomplete" -ForegroundColor Red
+            exit 1
+          }
