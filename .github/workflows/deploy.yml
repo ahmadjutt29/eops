@@ -80,8 +80,8 @@ jobs:
           try {
             if ($branch -eq "refs/heads/develop") {
               Write-Host "Environment: STAGING" -ForegroundColor Yellow
-              Write-Host "Command: npm run build" -ForegroundColor Gray
-              npm run build
+              Write-Host "Command: npm run build -- --mode staging" -ForegroundColor Gray
+              npm run build -- --mode staging
             }
             elseif ($branch -eq "refs/heads/main") {
               Write-Host "Environment: PRODUCTION" -ForegroundColor Green
