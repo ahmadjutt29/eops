@@ -66,8 +66,12 @@ jobs:
           $distPath = Join-Path $env:GITHUB_WORKSPACE 'dist'
           Write-Host "Build Output Path: $distPath"
 
+<<<<<<< HEAD
           if (-not (Test-Path $distPath)) 
           {
+=======
+          if (-not (Test-Path $distPath)) {
+>>>>>>> 3d42c80 (Fix PowerShell block: ensure all if/elseif/else blocks are properly closed in deploy.yml)
             Write-Host "ERROR: dist folder NOT FOUND"
             exit 1
           }
@@ -78,16 +82,24 @@ jobs:
           $branch = $env:GITHUB_REF
           Write-Host "Current branch: $branch"
 
+<<<<<<< HEAD
           if ($branch -eq "refs/heads/develop") 
           {
+=======
+          if ($branch -eq "refs/heads/develop") {
+>>>>>>> 3d42c80 (Fix PowerShell block: ensure all if/elseif/else blocks are properly closed in deploy.yml)
             Write-Host "========== STAGING DEPLOYMENT =========="
             Write-Host "Target: C:/nginx/html/react_staging/"
             Remove-Item -Recurse -Force 'C:/nginx/html/react_staging/*' -ErrorAction SilentlyContinue
             Copy-Item -Path (Join-Path $distPath '*') -Destination 'C:/nginx/html/react_staging/' -Recurse -Force
             Write-Host "Staging deployment COMPLETE"
           }
+<<<<<<< HEAD
           elseif ($branch -eq "refs/heads/main") 
           {
+=======
+          elseif ($branch -eq "refs/heads/main") {
+>>>>>>> 3d42c80 (Fix PowerShell block: ensure all if/elseif/else blocks are properly closed in deploy.yml)
             Write-Host "========== PRODUCTION DEPLOYMENT =========="
             Write-Host "Step 1: BACKUP old production"
             Remove-Item -Recurse -Force 'C:/nginx/html/backup_prod/*' -ErrorAction SilentlyContinue
@@ -104,6 +116,7 @@ jobs:
               if ($resp.StatusCode -eq 200) {
                 Write-Host "APPLICATION HEALTHY"
               }
+<<<<<<< HEAD
               else 
               {
                 throw "Returned non-200"
@@ -111,6 +124,13 @@ jobs:
             }
             catch 
             {
+=======
+              else {
+                throw "Returned non-200"
+              }
+            }
+            catch {
+>>>>>>> 3d42c80 (Fix PowerShell block: ensure all if/elseif/else blocks are properly closed in deploy.yml)
               Write-Host "HEALTH CHECK FAILED — ROLLING BACK"
               Remove-Item -Recurse -Force 'C:/nginx/html/react_prod/*' -ErrorAction SilentlyContinue
               Copy-Item -Path 'C:/nginx/html/backup_prod/*' -Destination 'C:/nginx/html/react_prod/' -Recurse -Force
@@ -119,8 +139,12 @@ jobs:
             }
             Write-Host "Production deployment COMPLETE"
           }
+<<<<<<< HEAD
           else 
           {
+=======
+          else {
+>>>>>>> 3d42c80 (Fix PowerShell block: ensure all if/elseif/else blocks are properly closed in deploy.yml)
             Write-Host "Branch is NOT develop or main — SKIPPING DEPLOY"
           }
           Write-Host "========== DEPLOYMENT FINISHED =========="
