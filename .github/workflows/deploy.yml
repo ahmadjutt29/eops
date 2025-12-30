@@ -3,76 +3,138 @@ name: React CI/CD (Staging & Production)
 on:
   push:
     branches:
-      - develop   # Staging
-      - main     # Production
+      - develop
+      - main
 
 jobs:
   build-and-deploy:
     runs-on: self-hosted
 
     steps:
-      # 1. Checkout code
+      # =========================================================
+      # 1. CHECKOUT
+      # =========================================================
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. Install Node.js dependencies
+      # =========================================================
+      # 2. INSTALL DEPENDENCIES
+      # =========================================================
       - name: Install dependencies
-        run: npm ci
+        run: |
+          echo "========== INSTALLING DEPENDENCIES =========="
+          npm ci
+          echo "========== DEPENDENCIES INSTALLED =========="
 
-      # 3. Build React app
+      # =========================================================
+      # 3. BUILD APPLICATION (conditional)
+      # =========================================================
       - name: Build React app
-        run: npm run build
+        shell: powershell
+        run: |
+          echo "========== BUILD STARTED =========="
+          echo "Branch detected: ${{ github.ref }}"
 
-      # 4. Deploy to server
+          if ("${{ github.ref }}" -eq "refs/heads/develop") {
+            echo "Environment: STAGING"
+            echo "Running: npm run build -- --mode staging"
+            npm run build -- --mode staging
+          }
+          elseif ("${{ github.ref }}" -eq "refs/heads/main") {
+            echo "Environment: PRODUCTION"
+            echo "Running: npm run build"
+            npm run build
+          }
+          else {
+            echo "UNKNOWN BRANCH – EXITING"
+            exit 1
+          }
+
+          echo "========== BUILD COMPLETED =========="
+
+      # =========================================================
+      # 4. DEPLOY
+      # =========================================================
       - name: Deploy to Server
         shell: powershell
         run: |
+          echo "========== DEPLOYMENT STARTED =========="
+
           $distPath = Join-Path $env:GITHUB_WORKSPACE 'dist'
-          Write-Host "Dist folder path: $distPath"
+
+          echo "Build Output Path: $distPath"
+
           if (-not (Test-Path $distPath)) {
-            Write-Host "ERROR: Dist folder does not exist!"
+            echo "ERROR: dist folder NOT FOUND"
             exit 1
           }
-          $distContents = Get-ChildItem $distPath
-          Write-Host "Dist folder contents:"
-          $distContents | ForEach-Object { Write-Host $_.FullName }
+
+          echo "========== DIST CONTENT =========="
+          Get-ChildItem -Recurse $distPath
 
           $branch = "${{ github.ref }}"
-          Write-Host "Branch: $branch"
+          echo "Current branch: $branch"
 
-          if ($branch -eq 'refs/heads/develop') {
-            Write-Host "Deploying to STAGING environment..."
+          if ($branch -eq "refs/heads/develop") {
+
+            echo "========== STAGING DEPLOYMENT =========="
+            echo "Target: C:/nginx/html/react_staging/"
+
             Remove-Item -Recurse -Force 'C:/nginx/html/react_staging/*' -ErrorAction SilentlyContinue
-            Copy-Item -Path (Join-Path $distPath '*') -Destination 'C:/nginx/html/react_staging/' -Recurse -Force
-            Write-Host "Staging deployment completed."
-          } elseif ($branch -eq 'refs/heads/main') {
-            Write-Host "Deploying to PRODUCTION environment..."
+            Copy-Item -Path (Join-Path $distPath '*') `
+              -Destination 'C:/nginx/html/react_staging/' `
+              -Recurse -Force
 
-            # Step 4a: Backup previous production
+            echo "Staging deployment COMPLETE"
+          }
+
+          elseif ($branch -eq "refs/heads/main") {
+
+            echo "========== PRODUCTION DEPLOYMENT =========="
+
+            echo "Step 1: BACKUP old production"
             Remove-Item -Recurse -Force 'C:/nginx/html/backup_prod/*' -ErrorAction SilentlyContinue
-            Copy-Item -Path 'C:/nginx/html/react_prod/*' -Destination 'C:/nginx/html/backup_prod/' -Recurse -Force
-            Write-Host "Backup of previous production completed."
+            Copy-Item -Path 'C:/nginx/html/react_prod/*' `
+              -Destination 'C:/nginx/html/backup_prod/' `
+              -Recurse -Force
+            echo "Backup complete"
 
-            # Step 4b: Deploy new build
+            echo "Step 2: DEPLOY new production build"
             Remove-Item -Recurse -Force 'C:/nginx/html/react_prod/*' -ErrorAction SilentlyContinue
-            Copy-Item -Path (Join-Path $distPath '*') -Destination 'C:/nginx/html/react_prod/' -Recurse -Force
-            Write-Host "Production deployment completed."
+            Copy-Item -Path (Join-Path $distPath '*') `
+              -Destination 'C:/nginx/html/react_prod/' `
+              -Recurse -Force
+            echo "Production updated"
 
-            # Step 4c: Health check
+            echo "Step 3: HEALTH CHECK"
             try {
               $resp = Invoke-WebRequest http://localhost/ -UseBasicParsing
+              echo "Health Check Status: $($resp.StatusCode)"
+
               if ($resp.StatusCode -eq 200) {
-                Write-Host "Production is live and healthy."
-              } else {
-                throw "Health check failed"
+                echo "APPLICATION HEALTHY"
               }
-            } catch {
-              Write-Host "Health check failed! Rolling back..."
+              else {
+                throw "Returned non-200"
+              }
+            }
+            catch {
+              echo "HEALTH CHECK FAILED — ROLLING BACK"
+
               Remove-Item -Recurse -Force 'C:/nginx/html/react_prod/*' -ErrorAction SilentlyContinue
-              Copy-Item -Path 'C:/nginx/html/backup_prod/*' -Destination 'C:/nginx/html/react_prod/' -Recurse -Force
-              Write-Host "Rollback completed."
+              Copy-Item -Path 'C:/nginx/html/backup_prod/*' `
+                -Destination 'C:/nginx/html/react_prod/' `
+                -Recurse -Force
+
+              echo "ROLLBACK COMPLETE"
               exit 1
             }
-          } else {
-            Write-Host "Branch is not deploy or main. Skipping deployment."
+
+            echo "Production deployment COMPLETE"
           }
+
+          else {
+            echo "Branch is NOT develop or main — SKIPPING DEPLOY"
+          }
+
+          echo "========== DEPLOYMENT FINISHED =========="
