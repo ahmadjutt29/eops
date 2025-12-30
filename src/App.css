@@ -1,3 +1,17 @@
+.eops-version {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  background: #000a;
+  padding: 0.2em 0.8em;
+  border-radius: 8px;
+  z-index: 20;
+  box-shadow: 0 2px 8px #0004;
+  letter-spacing: 0.04em;
+}
 .eops-btn {
   margin-top: 2.5rem;
   padding: 0.8rem 2.2rem;
