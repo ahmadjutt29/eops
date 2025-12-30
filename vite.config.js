@@ -9,12 +9,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-<<<<<<< Updated upstream
-export default defineConfig(({ mode }) => ({
-  plugins: [react()],
-  base: mode === 'staging' ? '/staging/' : '/',
-}))
-=======
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   return {
@@ -37,4 +31,3 @@ export default defineConfig(({ mode }) => {
     }
   }
 })
->>>>>>> Stashed changes
