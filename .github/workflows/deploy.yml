@@ -78,40 +78,26 @@ jobs:
           Write-Host "Current branch: $branch"
 
           if ($branch -eq "refs/heads/develop") {
-
             Write-Host "========== STAGING DEPLOYMENT =========="
             Write-Host "Target: C:/nginx/html/react_staging/"
-
             Remove-Item -Recurse -Force 'C:/nginx/html/react_staging/*' -ErrorAction SilentlyContinue
-            Copy-Item -Path (Join-Path $distPath '*') `
-              -Destination 'C:/nginx/html/react_staging/' `
-              -Recurse -Force
-
+            Copy-Item -Path (Join-Path $distPath '*') -Destination 'C:/nginx/html/react_staging/' -Recurse -Force
             Write-Host "Staging deployment COMPLETE"
           }
           elseif ($branch -eq "refs/heads/main") {
-
             Write-Host "========== PRODUCTION DEPLOYMENT =========="
-
             Write-Host "Step 1: BACKUP old production"
             Remove-Item -Recurse -Force 'C:/nginx/html/backup_prod/*' -ErrorAction SilentlyContinue
-            Copy-Item -Path 'C:/nginx/html/react_prod/*' `
-              -Destination 'C:/nginx/html/backup_prod/' `
-              -Recurse -Force
+            Copy-Item -Path 'C:/nginx/html/react_prod/*' -Destination 'C:/nginx/html/backup_prod/' -Recurse -Force
             Write-Host "Backup complete"
-
             Write-Host "Step 2: DEPLOY new production build"
             Remove-Item -Recurse -Force 'C:/nginx/html/react_prod/*' -ErrorAction SilentlyContinue
-            Copy-Item -Path (Join-Path $distPath '*') `
-              -Destination 'C:/nginx/html/react_prod/' `
-              -Recurse -Force
+            Copy-Item -Path (Join-Path $distPath '*') -Destination 'C:/nginx/html/react_prod/' -Recurse -Force
             Write-Host "Production updated"
-
             Write-Host "Step 3: HEALTH CHECK"
             try {
               $resp = Invoke-WebRequest http://localhost/ -UseBasicParsing
               Write-Host "Health Check Status: $($resp.StatusCode)"
-
               if ($resp.StatusCode -eq 200) {
                 Write-Host "APPLICATION HEALTHY"
               }
@@ -121,20 +107,14 @@ jobs:
             }
             catch {
               Write-Host "HEALTH CHECK FAILED — ROLLING BACK"
-
               Remove-Item -Recurse -Force 'C:/nginx/html/react_prod/*' -ErrorAction SilentlyContinue
-              Copy-Item -Path 'C:/nginx/html/backup_prod/*' `
-                -Destination 'C:/nginx/html/react_prod/' `
-                -Recurse -Force
-
+              Copy-Item -Path 'C:/nginx/html/backup_prod/*' -Destination 'C:/nginx/html/react_prod/' -Recurse -Force
               Write-Host "ROLLBACK COMPLETE"
               exit 1
             }
-
             Write-Host "Production deployment COMPLETE"
           }
           else {
             Write-Host "Branch is NOT develop or main — SKIPPING DEPLOY"
           }
-
           Write-Host "========== DEPLOYMENT FINISHED =========="
