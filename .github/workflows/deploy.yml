@@ -85,7 +85,7 @@ jobs:
             Remove-Item -Recurse -Force 'C:/nginx/html/react_staging/*' -ErrorAction SilentlyContinue
             Copy-Item -Path (Join-Path $distPath '*') -Destination 'C:/nginx/html/react_staging/' -Recurse -Force
             Write-Host "Staging deployment COMPLETE"
-          }  # <-- THIS CLOSING BRACE WAS MISSING!
+          }
           elseif ($branch -eq "refs/heads/main") 
           {
             Write-Host "========== PRODUCTION DEPLOYMENT =========="
